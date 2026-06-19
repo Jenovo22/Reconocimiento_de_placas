@@ -47,13 +47,28 @@ jobs:
             --exclude='__pycache__' \
             --exclude='.git' \
             --exclude='.github' \
-            --exclude='outputs/processed_images/*' \
-            --exclude='outputs/processed_videos/*' \
-            --exclude='inputs/*.mp4' \
-            --exclude='inputs/*.avi' \
-            --exclude='inputs/*.mov' \
-            --exclude='inputs/*.mkv' \
+            --exclude='training_docs' \
+            --exclude='video_set' \
+            --exclude='inputs' \
+            --exclude='outputs' \
+            --exclude='*.mp4' \
+            --exclude='*.avi' \
+            --exclude='*.mov' \
+            --exclude='*.mkv' \
+            --exclude='*.jpg' \
+            --exclude='*.jpeg' \
+            --exclude='*.png' \
             plate_dashboard/ hf_space/
+
+          mkdir -p hf_space/inputs/images
+          mkdir -p hf_space/inputs/videos
+          mkdir -p hf_space/outputs/processed_images
+          mkdir -p hf_space/outputs/processed_videos
+
+          touch hf_space/inputs/images/.gitkeep
+          touch hf_space/inputs/videos/.gitkeep
+          touch hf_space/outputs/processed_images/.gitkeep
+          touch hf_space/outputs/processed_videos/.gitkeep
 
       # ======================================================
       # 4. VERIFICAR ARCHIVOS PRINCIPALES
@@ -65,19 +80,19 @@ jobs:
 
           echo "Verificando archivos principales..."
 
-          test -f hf_space/app.py
-          test -f hf_space/config.py
-          test -f hf_space/Dockerfile
-          test -f hf_space/requirements.txt
-          test -f hf_space/README.md
+          test -f hf_space/app.py || (echo "ERROR: Falta app.py" && exit 1)
+          test -f hf_space/config.py || (echo "ERROR: Falta config.py" && exit 1)
+          test -f hf_space/Dockerfile || (echo "ERROR: Falta Dockerfile" && exit 1)
+          test -f hf_space/requirements.txt || (echo "ERROR: Falta requirements.txt" && exit 1)
+          test -f hf_space/README.md || (echo "ERROR: Falta README.md" && exit 1)
 
-          test -d hf_space/src
-          test -d hf_space/models
+          test -d hf_space/src || (echo "ERROR: Falta carpeta src" && exit 1)
+          test -d hf_space/models || (echo "ERROR: Falta carpeta models" && exit 1)
 
-          test -f hf_space/models/best.pt
-          test -f hf_space/models/ocr_best.onnx
+          test -f hf_space/models/best.pt || (echo "ERROR: Falta models/best.pt" && exit 1)
+          test -f hf_space/models/ocr_best.onnx || (echo "ERROR: Falta models/ocr_best.onnx" && exit 1)
 
-          echo "Verificacion completada correctamente."
+          echo "Verificación completada correctamente."
 
       # ======================================================
       # 5. VALIDAR TOKEN
