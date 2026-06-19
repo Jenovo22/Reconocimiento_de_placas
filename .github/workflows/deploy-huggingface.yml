@@ -82,6 +82,7 @@ jobs:
 
           test -f hf_space/app.py || (echo "ERROR: Falta app.py" && exit 1)
           test -f hf_space/config.py || (echo "ERROR: Falta config.py" && exit 1)
+          test -f hf_space/config_tracker.yaml || (echo "ERROR: Falta config_tracker.yaml" && exit 1)
           test -f hf_space/Dockerfile || (echo "ERROR: Falta Dockerfile" && exit 1)
           test -f hf_space/requirements.txt || (echo "ERROR: Falta requirements.txt" && exit 1)
           test -f hf_space/README.md || (echo "ERROR: Falta README.md" && exit 1)
@@ -91,6 +92,10 @@ jobs:
 
           test -f hf_space/models/best.pt || (echo "ERROR: Falta models/best.pt" && exit 1)
           test -f hf_space/models/ocr_best.onnx || (echo "ERROR: Falta models/ocr_best.onnx" && exit 1)
+
+          test -d hf_space/models/best_executorch_model || (echo "ERROR: Falta carpeta models/best_executorch_model" && exit 1)
+          test -f hf_space/models/best_executorch_model/model.pte || (echo "ERROR: Falta models/best_executorch_model/model.pte" && exit 1)
+          test -f hf_space/models/best_executorch_model/metadata.yaml || (echo "ERROR: Falta models/best_executorch_model/metadata.yaml" && exit 1)
 
           echo "Verificación completada correctamente."
 
@@ -124,6 +129,7 @@ jobs:
           git lfs install
           git lfs track "*.pt"
           git lfs track "*.onnx"
+          git lfs track "*.pte"
 
           git add .gitattributes
           git add .
