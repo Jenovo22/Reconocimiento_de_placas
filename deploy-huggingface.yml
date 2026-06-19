@@ -1,0 +1,107 @@
+name: Deploy plate_dashboard to Hugging Face
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  HF_USERNAME: Jenovo22
+  HF_SPACE: plate-dashboard
+
+jobs:
+  deploy-to-huggingface:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ======================================================
+      # 1. CLONAR REPOSITORIO DE GITHUB
+      # ======================================================
+      - name: Checkout GitHub repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      # ======================================================
+      # 2. INSTALAR GIT LFS
+      # ======================================================
+      - name: Install Git LFS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git-lfs
+          git lfs install
+
+      # ======================================================
+      # 3. PREPARAR CARPETA PARA HUGGING FACE
+      # ======================================================
+      # Tu repo tiene esta estructura:
+      #
+      # repo/
+      # ├── OCR_Project/
+      # └── plate_dashboard/
+      #
+      # Hugging Face debe recibir SOLO el contenido de plate_dashboard/
+      # porque ahí están app.py, Dockerfile, requirements.txt, models/ y src/.
+      # ======================================================
+      - name: Prepare Hugging Face Space folder
+        run: |
+          rm -rf hf_space
+          mkdir hf_space
+
+          rsync -av \
+            --exclude='venv' \
+            --exclude='.venv' \
+            --exclude='__pycache__' \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='outputs/processed_images/*' \
+            --exclude='outputs/processed_videos/*' \
+            --exclude='inputs/*.mp4' \
+            --exclude='inputs/*.avi' \
+            --exclude='inputs/*.mov' \
+            --exclude='inputs/*.mkv' \
+            plate_dashboard/ hf_space/
+
+      # ======================================================
+      # 4. VERIFICAR ARCHIVOS IMPORTANTES
+      # ======================================================
+      - name: Verify Space files
+        run: |
+          echo "Contenido preparado para Hugging Face:"
+          ls -la hf_space
+
+          echo "Verificando archivos principales..."
+
+          test -f hf_space/app.py
+          test -f hf_space/config.py
+          test -f hf_space/Dockerfile
+          test -f hf_space/requirements.txt
+          test -d hf_space/src
+          test -d hf_space/models
+
+      # ======================================================
+      # 5. HACER PUSH AL SPACE DE HUGGING FACE
+      # ======================================================
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          cd hf_space
+
+          git init
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+
+          git lfs install
+          git lfs track "*.pt"
+          git lfs track "*.onnx"
+
+          git add .gitattributes
+          git add .
+          git commit -m "Deploy plate dashboard to Hugging Face"
+
+          git branch -M main
+          git remote add space https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE}
+          git push --force space main

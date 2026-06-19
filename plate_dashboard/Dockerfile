@@ -2,9 +2,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Dependencias del sistema:
-# - ffmpeg: necesario para convertir videos
-# - libgl1 / libglib2.0-0: necesarias para OpenCV en Linux
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libgl1 \
