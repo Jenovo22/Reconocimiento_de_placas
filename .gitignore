@@ -1,0 +1,5 @@
+venv/
+plate_dashboard/venv/
+__pycache__/
+*.pyc
+.env

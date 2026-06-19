@@ -1,0 +1,11 @@
+{
+  "tag": "new_finetuned_onnx",
+  "split": "challenge",
+  "onnx_path": "/kaggle/working/fastplate_previous_keras_finetune_compare/artifacts/best.onnx",
+  "n": 800,
+  "plate_acc": 0.37625,
+  "char_acc": 0.6563487049905243,
+  "len_acc": 0.9275,
+  "seconds": 2.9373576641082764,
+  "sec_per_image_cpu": 0.0036716970801353456
+}

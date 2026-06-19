@@ -1,0 +1,10 @@
+max_plate_slots: 9
+alphabet: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+pad_char: "_"
+img_height: 64
+img_width: 160
+keep_aspect_ratio: true
+interpolation: linear
+image_color_mode: rgb
+padding_color: 114
+plate_regions: null

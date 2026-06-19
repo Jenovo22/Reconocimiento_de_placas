@@ -1,0 +1,43 @@
+{
+  "final_run": "/kaggle/working/fastplate_previous_keras_finetune_compare/trained_models/stage2_real_hard_extreme_balanced/2026-06-15_11-52-28",
+  "final_best": "/kaggle/working/fastplate_previous_keras_finetune_compare/trained_models/stage2_real_hard_extreme_balanced/2026-06-15_11-52-28/best.keras",
+  "start_weights": "/kaggle/input/datasets/sergio26873126/previous-best-candidate-from-good-log/previous_best.keras",
+  "start_from_previous": true,
+  "low_res_side_min": 80,
+  "manual_labels_valid": 406,
+  "manual_unique_plates": 20,
+  "manual_train_after_cap": 135,
+  "public_real_used": 867,
+  "train_mixed_rows": 11634,
+  "train_hard_rows": 5300,
+  "val_rows": 1227,
+  "challenge_rows": 800,
+  "valid_onnx": true,
+  "previous_onnx": "/kaggle/input/datasets/sergio26873126/pseudo-labels/best.onnx",
+  "old_onnx_metrics": [],
+  "new_onnx_metrics": [
+    {
+      "tag": "new_finetuned_onnx",
+      "split": "val",
+      "onnx_path": "/kaggle/working/fastplate_previous_keras_finetune_compare/artifacts/best.onnx",
+      "n": 1227,
+      "plate_acc": 0.7481662591687042,
+      "char_acc": 0.8691948337455345,
+      "len_acc": 0.9698451507742462,
+      "seconds": 4.305350303649902,
+      "sec_per_image_cpu": 0.003508842953259904
+    },
+    {
+      "tag": "new_finetuned_onnx",
+      "split": "challenge",
+      "onnx_path": "/kaggle/working/fastplate_previous_keras_finetune_compare/artifacts/best.onnx",
+      "n": 800,
+      "plate_acc": 0.37625,
+      "char_acc": 0.6563487049905243,
+      "len_acc": 0.9275,
+      "seconds": 2.9373576641082764,
+      "sec_per_image_cpu": 0.0036716970801353456
+    }
+  ],
+  "notes": "Balanceado por texto de placa para evitar sesgo por placas repetidas. Low-res original excluido; baja resolución se simula por augmentation."
+}

@@ -1,0 +1,7 @@
+# Runtime para inferencia OCR y flujo detector->OCR
+numpy>=1.26
+opencv-python>=4.8
+onnxruntime>=1.20
+ultralytics>=8.3
+tqdm>=4.66
+PyYAML>=6.0
