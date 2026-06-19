@@ -1,0 +1,37 @@
+# OCR Project
+
+Esta carpeta contiene un proyecto OCR independiente utilizado como referencia durante el desarrollo del sistema de detección y reconocimiento de placas.
+
+## Importante
+
+Esta carpeta no contiene la aplicación principal del sistema.
+
+La aplicación funcional se encuentra en:
+
+```text
+plate_dashboard/
+```
+
+## Propósito de esta carpeta
+
+`OCR_Project` puede contener archivos relacionados con:
+
+- Experimentación OCR.
+- Entrenamiento o pruebas de modelos OCR.
+- Referencias externas utilizadas durante el desarrollo.
+- Scripts o notebooks independientes.
+- Análisis del reconocimiento de caracteres.
+
+## Relación con el dashboard
+
+El dashboard principal usa un modelo OCR exportado en formato ONNX ubicado en:
+
+```text
+plate_dashboard/models/ocr_best.onnx
+```
+
+Por tanto, aunque esta carpeta sirvió como referencia, el OCR usado por la aplicación principal se integra desde `plate_dashboard`.
+
+## Nota
+
+Esta carpeta se conserva para trazabilidad, referencia y posibles mejoras futuras del módulo OCR.

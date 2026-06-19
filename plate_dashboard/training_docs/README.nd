@@ -1,0 +1,48 @@
+# Documentación y resultados de entrenamiento
+
+Esta carpeta contiene archivos relacionados con el entrenamiento, evaluación y documentación del modelo de detección.
+
+## Contenido posible
+
+Esta carpeta puede incluir:
+
+- Scripts de entrenamiento.
+- Scripts de partición de datos.
+- Notebooks de entrenamiento.
+- Pesos generados durante entrenamiento.
+- Gráficas de métricas.
+- Matrices de confusión.
+- Resultados en CSV.
+- Imágenes de batches de entrenamiento.
+- Imágenes de validación.
+- Archivos de configuración de entrenamiento.
+
+## Propósito
+
+El propósito de esta carpeta es conservar información útil para entender cómo se entrenó o evaluó el modelo de detección de placas.
+
+No es una carpeta necesaria para ejecutar la aplicación Streamlit.
+
+La aplicación principal utiliza el modelo final ubicado en:
+
+```text
+models/best.pt
+```
+
+## Recomendación antes del despliegue
+
+Antes de subir el proyecto a GitHub o Hugging Face, revisar si todos los archivos de esta carpeta son necesarios.
+
+Muchos archivos de entrenamiento pueden ser pesados y no son requeridos para la ejecución del dashboard.
+
+Si se desea conservar evidencia del entrenamiento, se recomienda mantener únicamente:
+
+- Métricas principales.
+- Gráficas finales.
+- Resultados resumidos.
+- Scripts relevantes.
+- Documentación del proceso.
+
+## Nota
+
+Los pesos intermedios, imágenes generadas masivamente y archivos de entrenamiento muy pesados pueden excluirse del repositorio principal si no son indispensables.

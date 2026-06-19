@@ -1,0 +1,161 @@
+# Módulos fuente del proyecto
+
+Esta carpeta contiene la lógica principal de procesamiento utilizada por la aplicación Streamlit.
+
+## Estructura
+
+```text
+src/
+├── camera_processor.py
+├── drawing.py
+├── grid_sahi_processor.py
+├── image_processor.py
+├── model_loader.py
+├── ocr_processor.py
+├── utils.py
+└── video_processor.py
+```
+
+## Descripción de módulos
+
+### `model_loader.py`
+
+Carga el modelo YOLO desde la ruta definida en `config.py`.
+
+Ruta esperada:
+
+```text
+models/best.pt
+```
+
+Este módulo se encarga de inicializar el modelo y seleccionar el dispositivo de ejecución disponible.
+
+### `image_processor.py`
+
+Procesa imágenes cargadas desde la interfaz.
+
+Responsabilidades principales:
+
+- Ejecutar inferencia YOLO sobre una imagen completa.
+- Ejecutar inferencia tipo SAHI manual por grid si está activada.
+- Convertir detecciones a cajas crudas.
+- Aplicar filtros geométricos para reducir falsos positivos.
+- Aplicar OCR sobre cada placa detectada.
+- Validar el texto reconocido por OCR.
+- Dibujar cajas, etiquetas y texto OCR.
+- Guardar la imagen procesada en `outputs/processed_images/`.
+
+### `video_processor.py`
+
+Procesa videos cargados desde la interfaz.
+
+Responsabilidades principales:
+
+- Leer metadatos del video.
+- Procesar un intervalo seleccionado por el usuario.
+- Ejecutar YOLO junto con ByteTrack.
+- Mantener el mismo ID para cada placa durante el tracking.
+- Guardar la mejor confianza de detección por ID.
+- Aplicar OCR a las placas detectadas.
+- Guardar el mejor texto OCR por ID.
+- Exportar el resultado como video MP4 compatible con navegador.
+- Guardar el video procesado en `outputs/processed_videos/`.
+
+### `camera_processor.py`
+
+Procesa video en tiempo real desde una cámara local usando OpenCV.
+
+Este módulo está pensado principalmente para ejecución local. En entornos remotos como Hugging Face Spaces, el acceso directo a la cámara física del usuario puede no estar disponible.
+
+### `grid_sahi_processor.py`
+
+Implementa una estrategia manual de división por grid inspirada en SAHI.
+
+Responsabilidades principales:
+
+- Dividir imágenes o frames en secciones.
+- Ejecutar YOLO sobre cada sección.
+- Reconstruir las coordenadas locales a coordenadas globales.
+- Aplicar NMS para eliminar duplicados.
+- Mejorar la detección de placas pequeñas o lejanas.
+
+### `ocr_processor.py`
+
+Carga y ejecuta el modelo OCR en formato ONNX.
+
+Ruta esperada:
+
+```text
+models/ocr_best.onnx
+```
+
+Responsabilidades principales:
+
+- Recortar la placa detectada.
+- Preprocesar el recorte al tamaño esperado por el OCR.
+- Ejecutar inferencia con ONNX Runtime.
+- Decodificar la salida del modelo.
+- Retornar texto OCR y confianza.
+
+### `drawing.py`
+
+Contiene funciones para dibujar resultados sobre imágenes o frames.
+
+Permite mostrar:
+
+- Cajas de detección.
+- Nombre de clase.
+- Confianza de detección.
+- ID de tracking.
+- Texto OCR.
+- Confianza OCR.
+
+### `utils.py`
+
+Contiene funciones auxiliares utilizadas en diferentes partes del proyecto.
+
+## Flujo de imagen
+
+```text
+Imagen
+    ↓
+YOLO o grid SAHI
+    ↓
+Filtro geométrico
+    ↓
+OCR
+    ↓
+Validación OCR
+    ↓
+Dibujo de resultados
+    ↓
+Imagen final
+```
+
+## Flujo de video
+
+```text
+Video
+    ↓
+Frame actual
+    ↓
+YOLO + ByteTrack
+    ↓
+Actualización de memoria por track_id
+    ↓
+OCR por placa
+    ↓
+Mejor OCR histórico por track_id
+    ↓
+Frame anotado
+    ↓
+Video final
+```
+
+## Consideraciones
+
+El módulo de video depende de FFmpeg para exportar videos compatibles con navegador.
+
+El módulo OCR depende de `onnxruntime`.
+
+El módulo de detección depende de `ultralytics`.
