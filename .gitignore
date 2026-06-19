@@ -1,5 +1,35 @@
+# Entornos virtuales
 venv/
-plate_dashboard/venv/
+.venv/
+env/
+
+# Python
 __pycache__/
 *.pyc
-.env
+*.pyo
+*.pyd
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Outputs generados
+outputs/processed_images/*
+outputs/processed_videos/*
+!outputs/processed_images/.gitkeep
+!outputs/processed_videos/.gitkeep
+
+# Inputs temporales
+inputs/images/*
+inputs/videos/*
+!inputs/images/.gitkeep
+!inputs/videos/.gitkeep
+
+# Archivos grandes temporales
+*.avi
+*.mp4
+*.mov
+*.mkv
+
+# Sistema
+.DS_Store
+Thumbs.db
