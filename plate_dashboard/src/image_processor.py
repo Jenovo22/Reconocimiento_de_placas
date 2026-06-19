@@ -6,29 +6,34 @@ from uuid import uuid4
 
 from config import (
     OUTPUT_IMAGE_DIR,
-    CONF_THRESHOLD,
-    IMG_SIZE,
+
+    # Configuración general
     USE_SAHI_IMAGE,
-    SAHI_CONF_THRESHOLD,
-    SAHI_GRID_ROWS,
-    SAHI_GRID_COLS,
-    SAHI_GRID_OVERLAP_RATIO,
-    SAHI_NMS_IOU_THRESHOLD,
     USE_OCR_IMAGE,
 
-    # Filtro geométrico de placas
-    USE_PLATE_GEOMETRY_FILTER,
-    PLATE_MIN_ASPECT_RATIO,
-    PLATE_MAX_ASPECT_RATIO,
-    PLATE_MIN_AREA_RATIO,
-    PLATE_MAX_AREA_RATIO,
-    PLATE_MIN_WIDTH_PX,
-    PLATE_MIN_HEIGHT_PX,
+    # Configuración SOLO para imágenes
+    IMAGE_CONF_THRESHOLD,
+    IMAGE_IMG_SIZE,
+    IMAGE_SAHI_INCLUDE_FULL_IMAGE,
+    IMAGE_SAHI_CONF_THRESHOLD,
+    IMAGE_SAHI_GRID_ROWS,
+    IMAGE_SAHI_GRID_COLS,
+    IMAGE_SAHI_GRID_OVERLAP_RATIO,
+    IMAGE_SAHI_NMS_IOU_THRESHOLD,
 
-    # Filtro OCR
-    USE_OCR_VALIDATION_FILTER,
-    OCR_ACCEPT_EMPTY_TEXT,
-    OCR_VALIDATION_MIN_CONFIDENCE,
+    # Filtro geométrico SOLO para imágenes
+    IMAGE_USE_PLATE_GEOMETRY_FILTER,
+    IMAGE_PLATE_MIN_ASPECT_RATIO,
+    IMAGE_PLATE_MAX_ASPECT_RATIO,
+    IMAGE_PLATE_MIN_AREA_RATIO,
+    IMAGE_PLATE_MAX_AREA_RATIO,
+    IMAGE_PLATE_MIN_WIDTH_PX,
+    IMAGE_PLATE_MIN_HEIGHT_PX,
+
+    # Filtro OCR SOLO para imágenes
+    IMAGE_USE_OCR_VALIDATION_FILTER,
+    IMAGE_OCR_ACCEPT_EMPTY_TEXT,
+    IMAGE_OCR_VALIDATION_MIN_CONFIDENCE,
 )
 
 from src.drawing import (
@@ -36,7 +41,10 @@ from src.drawing import (
     draw_ocr_boxes,
 )
 
-from src.grid_sahi_processor import run_grid_sahi_inference
+from src.grid_sahi_processor import (
+    run_grid_sahi_inference,
+    apply_nms,
+)
 
 from src.ocr_processor import (
     ONNXPlateOCR,
@@ -63,8 +71,8 @@ def _ultralytics_results_to_raw_boxes(results):
     (x1, y1, x2, y2, conf, class_id)
 
     Importante:
-    En imagen NO conservamos track_id, aunque exista por estado interno.
-    Los IDs son solo para video con tracking.
+    En imágenes NO se conserva track_id.
+    Los IDs solo deben aparecer en video con tracking.
     """
 
     boxes = []
@@ -103,7 +111,7 @@ def _is_valid_plate_geometry(box, image_shape):
     (x1, y1, x2, y2, conf, class_id)
     """
 
-    if not USE_PLATE_GEOMETRY_FILTER:
+    if not IMAGE_USE_PLATE_GEOMETRY_FILTER:
         return True
 
     h, w = image_shape[:2]
@@ -116,22 +124,22 @@ def _is_valid_plate_geometry(box, image_shape):
     aspect_ratio = box_w / box_h
     area_ratio = (box_w * box_h) / max(1.0, float(w * h))
 
-    if box_w < PLATE_MIN_WIDTH_PX:
+    if box_w < IMAGE_PLATE_MIN_WIDTH_PX:
         return False
 
-    if box_h < PLATE_MIN_HEIGHT_PX:
+    if box_h < IMAGE_PLATE_MIN_HEIGHT_PX:
         return False
 
-    if aspect_ratio < PLATE_MIN_ASPECT_RATIO:
+    if aspect_ratio < IMAGE_PLATE_MIN_ASPECT_RATIO:
         return False
 
-    if aspect_ratio > PLATE_MAX_ASPECT_RATIO:
+    if aspect_ratio > IMAGE_PLATE_MAX_ASPECT_RATIO:
         return False
 
-    if area_ratio < PLATE_MIN_AREA_RATIO:
+    if area_ratio < IMAGE_PLATE_MIN_AREA_RATIO:
         return False
 
-    if area_ratio > PLATE_MAX_AREA_RATIO:
+    if area_ratio > IMAGE_PLATE_MAX_AREA_RATIO:
         return False
 
     return True
@@ -143,6 +151,7 @@ def _filter_raw_boxes_by_geometry(boxes, image_shape):
     """
 
     if not boxes:
+        print("[IMAGE FILTER GEOMETRY] Cajas antes: 0 | después: 0")
         return []
 
     filtered = []
@@ -154,14 +163,17 @@ def _filter_raw_boxes_by_geometry(boxes, image_shape):
         if _is_valid_plate_geometry(box, image_shape):
             filtered.append(box)
 
-    print(f"[FILTER GEOMETRY] Cajas antes: {len(boxes)} | después: {len(filtered)}")
+    print(
+        f"[IMAGE FILTER GEOMETRY] Cajas antes: {len(boxes)} | "
+        f"después: {len(filtered)}"
+    )
 
     return filtered
 
 
 def _normalize_plate_text(text: str) -> str:
     """
-    Normaliza texto OCR para validación.
+    Normaliza texto OCR para validación y visualización.
     """
 
     text = str(text).upper().strip()
@@ -180,16 +192,16 @@ def _is_valid_plate_text(text: str, ocr_conf: float) -> bool:
         ABC12D
     """
 
-    if not USE_OCR_VALIDATION_FILTER:
+    if not IMAGE_USE_OCR_VALIDATION_FILTER:
         return True
 
     text = _normalize_plate_text(text)
     ocr_conf = float(ocr_conf) if ocr_conf is not None else 0.0
 
     if not text:
-        return bool(OCR_ACCEPT_EMPTY_TEXT)
+        return bool(IMAGE_OCR_ACCEPT_EMPTY_TEXT)
 
-    if ocr_conf < OCR_VALIDATION_MIN_CONFIDENCE:
+    if ocr_conf < IMAGE_OCR_VALIDATION_MIN_CONFIDENCE:
         return False
 
     patterns = [
@@ -207,12 +219,42 @@ def _filter_ocr_boxes_for_images(ocr_boxes):
     Formato esperado:
     (x1, y1, x2, y2, det_conf, class_id, ocr_text, ocr_conf)
 
-    En imagen se descartan cajas sin OCR válido si:
-    OCR_ACCEPT_EMPTY_TEXT = False
+    Si IMAGE_USE_OCR_VALIDATION_FILTER = False:
+    no elimina cajas por OCR.
     """
 
-    if not USE_OCR_VALIDATION_FILTER:
-        return ocr_boxes
+    if not ocr_boxes:
+        print("[IMAGE FILTER OCR] Cajas antes: 0 | después: 0")
+        return []
+
+    if not IMAGE_USE_OCR_VALIDATION_FILTER:
+        normalized_boxes = []
+
+        for box in ocr_boxes:
+            if len(box) != 8:
+                continue
+
+            x1, y1, x2, y2, det_conf, class_id, ocr_text, ocr_conf = box
+
+            normalized_boxes.append(
+                (
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    det_conf,
+                    class_id,
+                    _normalize_plate_text(ocr_text),
+                    ocr_conf,
+                )
+            )
+
+        print(
+            f"[IMAGE FILTER OCR] Filtro OCR desactivado | "
+            f"cajas mostradas: {len(normalized_boxes)}"
+        )
+
+        return normalized_boxes
 
     filtered = []
 
@@ -222,10 +264,9 @@ def _filter_ocr_boxes_for_images(ocr_boxes):
 
         x1, y1, x2, y2, det_conf, class_id, ocr_text, ocr_conf = box
 
-        if _is_valid_plate_text(ocr_text, ocr_conf):
-            # Guardar texto normalizado para dibujar más limpio
-            normalized_text = _normalize_plate_text(ocr_text)
+        normalized_text = _normalize_plate_text(ocr_text)
 
+        if _is_valid_plate_text(normalized_text, ocr_conf):
             filtered.append(
                 (
                     x1,
@@ -239,9 +280,89 @@ def _filter_ocr_boxes_for_images(ocr_boxes):
                 )
             )
 
-    print(f"[FILTER OCR] Cajas antes: {len(ocr_boxes)} | después: {len(filtered)}")
+    print(
+        f"[IMAGE FILTER OCR] Cajas antes: {len(ocr_boxes)} | "
+        f"después: {len(filtered)}"
+    )
 
     return filtered
+
+
+def _run_full_image_yolo(model, image, device):
+    """
+    Ejecuta YOLO normal sobre la imagen completa.
+
+    Esto se usa tanto en modo YOLO normal como en modo SAHI complementario.
+    """
+
+    results = model.predict(
+        image,
+        conf=IMAGE_CONF_THRESHOLD,
+        imgsz=IMAGE_IMG_SIZE,
+        device=device,
+        verbose=False,
+    )
+
+    boxes = _ultralytics_results_to_raw_boxes(results)
+
+    print(f"[IMAGE FULL YOLO] Detecciones imagen completa: {len(boxes)}")
+
+    return boxes
+
+
+def _run_sahi_grid_yolo(model, image, device):
+    """
+    Ejecuta inferencia por grid tipo SAHI.
+    """
+
+    boxes = run_grid_sahi_inference(
+        image=image,
+        model=model,
+        device=device,
+        grid_rows=IMAGE_SAHI_GRID_ROWS,
+        grid_cols=IMAGE_SAHI_GRID_COLS,
+        conf_threshold=IMAGE_SAHI_CONF_THRESHOLD,
+        imgsz=IMAGE_IMG_SIZE,
+        overlap_ratio=IMAGE_SAHI_GRID_OVERLAP_RATIO,
+        nms_iou_threshold=IMAGE_SAHI_NMS_IOU_THRESHOLD,
+        log_prefix="[IMAGE GRID SAHI]",
+    )
+
+    print(f"[IMAGE GRID SAHI] Detecciones grid: {len(boxes)}")
+
+    return boxes
+
+
+def _draw_image_results(image, boxes, model_names, ocr_model):
+    """
+    Aplica OCR si está activo y dibuja resultados.
+    """
+
+    if USE_OCR_IMAGE and ocr_model is not None:
+        ocr_boxes = extract_ocr_from_raw_boxes(
+            frame=image,
+            boxes=boxes,
+            ocr_model=ocr_model,
+        )
+
+        ocr_boxes = _filter_ocr_boxes_for_images(ocr_boxes)
+
+        annotated = draw_ocr_boxes(
+            image,
+            ocr_boxes,
+            model_names,
+        )
+
+        return annotated
+
+    annotated = draw_raw_boxes(
+        image,
+        boxes,
+        model_names,
+        smooth_confidence=False,
+    )
+
+    return annotated
 
 
 # ============================================================
@@ -250,23 +371,17 @@ def _filter_ocr_boxes_for_images(ocr_boxes):
 
 def process_image(model, image_path, device, use_sahi=None):
     """
-    Procesa una imagen:
-    - Si use_sahi=True:
-        usa GRID SAHI dinámico por filas x columnas.
-    - Si use_sahi=False:
+    Procesa una imagen.
+
+    Si use_sahi=False:
         usa YOLO normal sobre la imagen completa.
 
-    Si USE_OCR_IMAGE=True:
-        aplica OCR sobre cada crop de placa detectada
-        y filtra falsos positivos por texto válido.
+    Si use_sahi=True:
+        usa YOLO normal sobre imagen completa + SAHI grid,
+        fusiona ambas salidas con NMS y luego aplica OCR.
 
-    El grid se configura desde config.py:
-
-        SAHI_GRID_ROWS
-        SAHI_GRID_COLS
-        SAHI_GRID_OVERLAP_RATIO
-        SAHI_CONF_THRESHOLD
-        SAHI_NMS_IOU_THRESHOLD
+    Esta versión usa parámetros IMAGE_* para que los cambios afecten
+    solamente imágenes y no videos.
     """
 
     OUTPUT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -299,102 +414,87 @@ def process_image(model, image_path, device, use_sahi=None):
     # ========================================================
 
     if use_sahi:
-        print("[IMAGE] Usando GRID SAHI dinámico.")
-        print(f"[IMAGE] Grid configurado: {SAHI_GRID_ROWS}x{SAHI_GRID_COLS}")
-        print(f"[IMAGE] Secciones totales: {SAHI_GRID_ROWS * SAHI_GRID_COLS}")
-        print(f"[IMAGE] Overlap configurado: {SAHI_GRID_OVERLAP_RATIO}")
-        print(f"[IMAGE] Conf SAHI: {SAHI_CONF_THRESHOLD}")
-        print(f"[IMAGE] NMS IoU: {SAHI_NMS_IOU_THRESHOLD}")
+        print("[IMAGE] Usando YOLO completo + GRID SAHI complementario.")
+        print(f"[IMAGE] IMG_SIZE: {IMAGE_IMG_SIZE}")
+        print(f"[IMAGE] YOLO full conf: {IMAGE_CONF_THRESHOLD}")
+        print(f"[IMAGE] Include full image: {IMAGE_SAHI_INCLUDE_FULL_IMAGE}")
+        print(f"[IMAGE] Grid configurado: {IMAGE_SAHI_GRID_ROWS}x{IMAGE_SAHI_GRID_COLS}")
+        print(f"[IMAGE] Secciones totales: {IMAGE_SAHI_GRID_ROWS * IMAGE_SAHI_GRID_COLS}")
+        print(f"[IMAGE] Overlap configurado: {IMAGE_SAHI_GRID_OVERLAP_RATIO}")
+        print(f"[IMAGE] Conf SAHI: {IMAGE_SAHI_CONF_THRESHOLD}")
+        print(f"[IMAGE] NMS IoU: {IMAGE_SAHI_NMS_IOU_THRESHOLD}")
+        print(f"[IMAGE] Filtro OCR imagen: {IMAGE_USE_OCR_VALIDATION_FILTER}")
 
-        boxes = run_grid_sahi_inference(
-            image=image,
+        boxes = []
+
+        if IMAGE_SAHI_INCLUDE_FULL_IMAGE:
+            full_boxes = _run_full_image_yolo(
+                model=model,
+                image=image,
+                device=device,
+            )
+
+            boxes.extend(full_boxes)
+
+        sahi_boxes = _run_sahi_grid_yolo(
             model=model,
+            image=image,
             device=device,
-            grid_rows=SAHI_GRID_ROWS,
-            grid_cols=SAHI_GRID_COLS,
-            conf_threshold=SAHI_CONF_THRESHOLD,
-            imgsz=IMG_SIZE,
-            overlap_ratio=SAHI_GRID_OVERLAP_RATIO,
-            nms_iou_threshold=SAHI_NMS_IOU_THRESHOLD,
-            log_prefix="[IMAGE GRID SAHI]",
         )
+
+        boxes.extend(sahi_boxes)
+
+        print(f"[IMAGE FULL + SAHI] Cajas antes NMS global: {len(boxes)}")
+
+        boxes = apply_nms(
+            boxes,
+            iou_threshold=IMAGE_SAHI_NMS_IOU_THRESHOLD,
+        )
+
+        print(f"[IMAGE FULL + SAHI] Cajas después NMS global: {len(boxes)}")
 
         boxes = _filter_raw_boxes_by_geometry(
             boxes,
             image.shape,
         )
 
-        if USE_OCR_IMAGE and ocr_model is not None:
-            ocr_boxes = extract_ocr_from_raw_boxes(
-                frame=image,
-                boxes=boxes,
-                ocr_model=ocr_model,
-            )
+        annotated = _draw_image_results(
+            image=image,
+            boxes=boxes,
+            model_names=model.names,
+            ocr_model=ocr_model,
+        )
 
-            ocr_boxes = _filter_ocr_boxes_for_images(ocr_boxes)
-
-            annotated = draw_ocr_boxes(
-                image,
-                ocr_boxes,
-                model.names,
-            )
-
-            suffix = f"grid_{SAHI_GRID_ROWS}x{SAHI_GRID_COLS}_ocr"
-
+        if IMAGE_SAHI_INCLUDE_FULL_IMAGE:
+            suffix = f"full_grid_{IMAGE_SAHI_GRID_ROWS}x{IMAGE_SAHI_GRID_COLS}_ocr"
         else:
-            annotated = draw_raw_boxes(
-                image,
-                boxes,
-                model.names,
-                smooth_confidence=False,
-            )
-
-            suffix = f"grid_{SAHI_GRID_ROWS}x{SAHI_GRID_COLS}"
+            suffix = f"grid_{IMAGE_SAHI_GRID_ROWS}x{IMAGE_SAHI_GRID_COLS}_ocr"
 
     else:
         print("[IMAGE] Usando YOLO normal.")
+        print(f"[IMAGE] IMG_SIZE: {IMAGE_IMG_SIZE}")
+        print(f"[IMAGE] Conf YOLO imagen: {IMAGE_CONF_THRESHOLD}")
+        print(f"[IMAGE] Filtro OCR imagen: {IMAGE_USE_OCR_VALIDATION_FILTER}")
 
-        results = model.predict(
-            image,
-            conf=CONF_THRESHOLD,
-            imgsz=IMG_SIZE,
+        boxes = _run_full_image_yolo(
+            model=model,
+            image=image,
             device=device,
-            verbose=False,
         )
-
-        boxes = _ultralytics_results_to_raw_boxes(results)
 
         boxes = _filter_raw_boxes_by_geometry(
             boxes,
             image.shape,
         )
 
-        if USE_OCR_IMAGE and ocr_model is not None:
-            ocr_boxes = extract_ocr_from_raw_boxes(
-                frame=image,
-                boxes=boxes,
-                ocr_model=ocr_model,
-            )
+        annotated = _draw_image_results(
+            image=image,
+            boxes=boxes,
+            model_names=model.names,
+            ocr_model=ocr_model,
+        )
 
-            ocr_boxes = _filter_ocr_boxes_for_images(ocr_boxes)
-
-            annotated = draw_ocr_boxes(
-                image,
-                ocr_boxes,
-                model.names,
-            )
-
-            suffix = "yolo_ocr"
-
-        else:
-            annotated = draw_raw_boxes(
-                image,
-                boxes,
-                model.names,
-                smooth_confidence=False,
-            )
-
-            suffix = "yolo"
+        suffix = "yolo_ocr"
 
     # ========================================================
     # GUARDADO

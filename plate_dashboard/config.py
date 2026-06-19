@@ -30,16 +30,15 @@ OUTPUT_IMAGE_DIR = BASE_DIR / "outputs" / "processed_images"
 OUTPUT_DIR = OUTPUT_VIDEO_DIR
 
 # ============================================================
-# MODEL CONFIG
+# MODEL CONFIG GENERAL
 # ============================================================
 
-# Umbral general para inferencia YOLO normal en imágenes/cámara.
-# 0.35 reduce falsos positivos frente a 0.15.
+# Umbral general para inferencia YOLO normal.
+# Este valor se mantiene estable para video/cámara.
 CONF_THRESHOLD = 0.35
 
-# Tamaño de inferencia.
-# 960 suele mejorar placas pequeñas respecto a 640,
-# pero aumenta tiempo de procesamiento.
+# Tamaño general de inferencia.
+# Este valor se mantiene estable para video/cámara.
 IMG_SIZE = 960
 
 # Índice de cámara local
@@ -47,46 +46,81 @@ CAMERA_INDEX = 0
 
 
 # ============================================================
-# SAHI GRID CONFIG
+# IMAGE ONLY CONFIG
 # ============================================================
+# Estos parámetros son SOLO para procesamiento de imágenes.
+# Para que funcionen, image_processor.py debe usar estas variables
+# en vez de CONF_THRESHOLD, IMG_SIZE y SAHI_* globales.
 
-# Activa/desactiva SAHI por grid como valor inicial en la sección de imagen
+# Umbral YOLO normal solo para imágenes.
+# Se deja en 0.30 para conservar placas visibles y reducir falsos positivos.
+IMAGE_CONF_THRESHOLD = 0.30
+
+# Tamaño de inferencia solo para imágenes.
+# 960 mantiene estabilidad. Si se requiere intentar placas más pequeñas,
+# se puede probar 1280, pero puede alterar resultados y aumentar tiempo.
+IMAGE_IMG_SIZE = 960
+
+# Activa/desactiva SAHI grid como valor inicial solo para imágenes.
 USE_SAHI_IMAGE = True
 
-# Activa/desactiva SAHI por grid como valor inicial en la sección de video.
+# Cuando SAHI está activo en imágenes, también ejecuta YOLO sobre la imagen completa.
+# Esto evita que SAHI reemplace al YOLO normal y pierda placas visibles.
+IMAGE_SAHI_INCLUDE_FULL_IMAGE = True
+
+# Umbral SAHI solo para imágenes.
+IMAGE_SAHI_CONF_THRESHOLD = 0.18
+
+# Grid SAHI solo para imágenes.
+# 1x3 conserva más contexto que 1x4 y reduce pérdida de placas visibles.
+IMAGE_SAHI_GRID_ROWS = 1
+IMAGE_SAHI_GRID_COLS = 3
+
+# Overlap solo para imágenes.
+# Más overlap ayuda a no perder placas cerca de bordes de corte.
+IMAGE_SAHI_GRID_OVERLAP_RATIO = 0.25
+
+# NMS solo para imágenes.
+IMAGE_SAHI_NMS_IOU_THRESHOLD = 0.45
+
+# Filtro OCR solo para imágenes.
+# Se deja en False para no eliminar placas detectadas cuyo OCR falle.
+IMAGE_USE_OCR_VALIDATION_FILTER = False
+
+# Permitir mostrar cajas aunque el OCR salga vacío o imperfecto.
+IMAGE_OCR_ACCEPT_EMPTY_TEXT = True
+
+# Confianza mínima OCR solo para imágenes.
+IMAGE_OCR_VALIDATION_MIN_CONFIDENCE = 0.20
+
+
+# ============================================================
+# SAHI GRID CONFIG GENERAL
+# ============================================================
+# Estos parámetros quedan para compatibilidad y para video si en algún
+# momento se activa USE_SAHI_VIDEO.
+# No son los recomendados para image_processor.py después del ajuste.
+
+# Activa/desactiva SAHI por grid como valor inicial en video.
 # Recomendado iniciar en False porque en video es mucho más lento.
 USE_SAHI_VIDEO = False
 
-# Umbral específico para inferencia por grid.
-# Puede ser menor que CONF_THRESHOLD para recuperar placas pequeñas.
-SAHI_CONF_THRESHOLD = 0.20
+# Umbral específico para inferencia por grid general.
+SAHI_CONF_THRESHOLD = 0.18
 
-# Grid manual:
-# total de secciones = SAHI_GRID_ROWS * SAHI_GRID_COLS
-#
-# Ejemplos:
-# 1x4 = 4 secciones horizontales
-# 2x2 = 4 secciones
-# 2x4 = 8 secciones
-# 2x5 = 10 secciones
-# 3x3 = 9 secciones
-#
-# Para cámaras horizontales, suele convenir más columnas que filas.
+# Grid manual general
 SAHI_GRID_ROWS = 1
 SAHI_GRID_COLS = 4
 
-# Overlap entre secciones para evitar perder placas en bordes.
-# 0.00 = sin solape
-# 0.10 = 10% recomendado
-# 0.20 = más tolerante, pero puede generar más duplicados
-SAHI_GRID_OVERLAP_RATIO = 0.10
+# Overlap general entre secciones
+SAHI_GRID_OVERLAP_RATIO = 0.15
 
-# NMS para fusionar cajas duplicadas generadas por overlap
+# NMS general para fusionar cajas duplicadas
 SAHI_NMS_IOU_THRESHOLD = 0.45
 
 
 # ============================================================
-# PLATE POST-FILTER CONFIG
+# PLATE POST-FILTER CONFIG GENERAL
 # ============================================================
 
 # Filtro geométrico para eliminar falsos positivos que no tienen forma de placa.
@@ -94,18 +128,37 @@ USE_PLATE_GEOMETRY_FILTER = True
 
 # Relación ancho / alto esperada.
 # Placas colombianas de carro suelen ser rectangulares.
-# Placas de moto pueden ser algo menos anchas, por eso el mínimo no es tan alto.
-PLATE_MIN_ASPECT_RATIO = 1.10
-PLATE_MAX_ASPECT_RATIO = 5.50
+# Placas de moto pueden ser algo menos anchas.
+PLATE_MIN_ASPECT_RATIO = 1.00
+PLATE_MAX_ASPECT_RATIO = 6.00
 
 # Área relativa de la caja respecto a la imagen completa.
-# Evita cajas gigantes como falso positivo.
-PLATE_MIN_AREA_RATIO = 0.00005
+# Se baja el mínimo para no eliminar placas pequeñas o lejanas.
+PLATE_MIN_AREA_RATIO = 0.00001
 PLATE_MAX_AREA_RATIO = 0.030
 
 # Tamaño mínimo absoluto de caja.
-PLATE_MIN_WIDTH_PX = 12
-PLATE_MIN_HEIGHT_PX = 8
+# Se relajan para permitir placas pequeñas.
+PLATE_MIN_WIDTH_PX = 8
+PLATE_MIN_HEIGHT_PX = 6
+
+
+# ============================================================
+# IMAGE ONLY PLATE POST-FILTER CONFIG
+# ============================================================
+# Estos valores son usados por image_processor.py para que los filtros
+# geométricos también sean independientes para imágenes.
+
+IMAGE_USE_PLATE_GEOMETRY_FILTER = True
+
+IMAGE_PLATE_MIN_ASPECT_RATIO = 1.00
+IMAGE_PLATE_MAX_ASPECT_RATIO = 6.00
+
+IMAGE_PLATE_MIN_AREA_RATIO = 0.00001
+IMAGE_PLATE_MAX_AREA_RATIO = 0.030
+
+IMAGE_PLATE_MIN_WIDTH_PX = 8
+IMAGE_PLATE_MIN_HEIGHT_PX = 6
 
 
 # ============================================================
@@ -165,19 +218,20 @@ OCR_BLANK_INDEX = len(OCR_CHARSET)
 OCR_MIN_CONFIDENCE = 0.05
 
 # Padding proporcional aplicado al crop de la placa antes de pasarlo al OCR.
-# Si el OCR corta caracteres en bordes, subir a 0.10 o 0.12.
-OCR_CROP_PADDING = 0.08
+# Se sube a 0.12 para dar más margen y evitar cortar caracteres.
+OCR_CROP_PADDING = 0.12
 
 
 # ============================================================
-# OCR VALIDATION FILTER
+# OCR VALIDATION FILTER GENERAL
 # ============================================================
+# Estos valores se conservan para compatibilidad.
+# Para imágenes, se recomienda usar los IMAGE_* definidos arriba.
 
-# Filtra detecciones en imagen si el OCR no produce un texto válido.
-# Esto ayuda a eliminar falsos positivos.
+# Filtra detecciones si el OCR no produce un texto válido.
 USE_OCR_VALIDATION_FILTER = True
 
-# Si está en False, una caja sin OCR válido NO se dibuja en imágenes.
+# Si está en False, una caja sin OCR válido NO se dibuja.
 OCR_ACCEPT_EMPTY_TEXT = False
 
 # Confianza mínima del OCR para aceptar una lectura.
