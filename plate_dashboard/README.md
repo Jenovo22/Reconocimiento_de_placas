@@ -224,3 +224,5 @@ outputs/processed_videos/
 ```
 
 Estos archivos son generados en tiempo de ejecución y no deberían subirse normalmente al repositorio.
+
+Link Hugging: https://huggingface.co/spaces/Jenovo22/plate-dashboard
